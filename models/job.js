@@ -6,49 +6,45 @@ const { sqlForPartialUpdate, sqlCompanyFilter } = require('../helpers/sql');
 
 /** Related functions for companies. */
 
-class Company {
-  /** Create a company (from data), update db, return new company data.
+class Job {
+  /** Create a job (from data), update db, return new job data.
    *
-   * data should be { handle, name, description, numEmployees, logoUrl }
+   * data should be { title, salary, equity, company_handle }
    *
    * Returns { handle, name, description, numEmployees, logoUrl }
    *
-   * Throws BadRequestError if company already in database.
+   * No need to check for duplicates as job id is serialized primary key not editable
    * */
 
-  static async create({ handle, name, description, numEmployees, logoUrl }) {
-    const duplicateCheck = await db.query(
-      `SELECT handle
-           FROM companies
-           WHERE handle = $1`,
-      [handle]
-    );
-
-    if (duplicateCheck.rows[0]) throw new BadRequestError(`Duplicate company: ${handle}`);
-
+  static async create(data) {
     const result = await db.query(
-      `INSERT INTO companies
-           (handle, name, description, num_employees, logo_url)
-           VALUES ($1, $2, $3, $4, $5)
-           RETURNING handle, name, description, num_employees AS "numEmployees", logo_url AS "logoUrl"`,
-      [handle, name, description, numEmployees, logoUrl]
-    );
-    const company = result.rows[0];
+          `INSERT INTO jobs (title,
+                             salary,
+                             equity,
+                             company_handle)
+           VALUES ($1, $2, $3, $4)
+           RETURNING id, title, salary, equity, company_handle AS "companyHandle"`,
+        [
+          data.title,
+          data.salary,
+          data.equity,
+          data.companyHandle,
+        ]);
+    let job = result.rows[0];
 
-    return company;
+    return job;
   }
 
-  /** Find all companies.
+  /** Find all jobs.
    *
    * Returns [{ handle, name, description, numEmployees, logoUrl }, ...]
    * */
 
   static async findAll(filters) {
-    let companiesRes;
+    let jobsRes;
     if (Object.keys(filters).length > 0) {
       const { setCols, values } = sqlCompanyFilter(filters);
-      console.log(setCols);
-      companiesRes = await db.query(
+      jobsRes = await db.query(
         `SELECT handle,
                     name,
                     description,
@@ -60,17 +56,18 @@ class Company {
         values
       );
     } else {
-      companiesRes = await db.query(
-        `SELECT handle,
-                    name,
-                    description,
-                    num_employees AS "numEmployees",
-                    logo_url AS "logoUrl"
-            FROM companies
-            ORDER BY name`
+      jobsRes = await db.query(
+        `SELECT j.id,
+                j.title,
+                j.salary,
+                j.equity,
+                j.company_handle AS "companyHandle",
+                c.name AS "companyName"
+        FROM jobs j 
+          LEFT JOIN companies AS c ON c.handle = j.company_handle`
       );
     }
-    return companiesRes.rows;
+    return jobsRes.rows;
   }
 
   /** Given a company handle, return data about company.

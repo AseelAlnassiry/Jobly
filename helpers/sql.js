@@ -10,7 +10,6 @@ const { BadRequestError } = require('../expressError');
  * { firstName: 'feller', lastName: 'keller' }, { firstName: 'first_name', lastName: 'last_name', isAdmin: 'is_admin' }
  * => {"first_name"=$1, "last_name"=$2, [ 'feller', 'keller' ]}
  */
-
 function sqlForPartialUpdate(dataToUpdate, jsToSql) {
   const keys = Object.keys(dataToUpdate);
   if (keys.length === 0) throw new BadRequestError('No data');
@@ -21,4 +20,43 @@ function sqlForPartialUpdate(dataToUpdate, jsToSql) {
   };
 }
 
-module.exports = { sqlForPartialUpdate };
+/**
+ * Name: sqlCompanyFilter
+ * description: Sql filter creater for injecting into company sql queries
+ * @param {object} filters query received from the router
+ * @returns {setCols, values} WHERE clause params and an array of values required for the sql filter
+ * example:
+ * { minEmployees: '300', maxEmployees: '700', nameLike: 'an' }
+ * => {
+ *      setCols: "WHEREnum_employees >= $1  AND num_employees <= $2 AND Lower(name) LIKE '%' || Lower($3) || '%'",
+ *      values: [ '300', '700', 'an' ]
+ *    }
+ */
+function sqlCompanyFilter(filters) {
+  console.log(filters);
+  const keys = Object.keys(filters);
+  const values = Object.values(filters);
+  if (keys.length === 0) throw new BadRequestError('No filter');
+  if (
+    filters['minEmployees'] &&
+    filters['maxEmployees'] &&
+    Number(filters['minEmployees']) >= Number(filters['maxEmployees'])
+  ) {
+    console.log(filters['minEmployees']);
+    throw new BadRequestError('Filter minEmployees > maxEmployees');
+  }
+  const cols = keys.map((filter, idx) => {
+    // case insensitive name search search
+    if (filter === 'nameLike') return `Lower(name) LIKE '%' || Lower($${idx + 1}) || '%'`; 
+    // min employees search
+    else if (filter === 'minEmployees') return `num_employees >= $${idx + 1} `;
+    // max employees search
+    else return `num_employees <= $${idx + 1}`;
+  });
+  return {
+    setCols: 'WHERE ' + cols.join(' AND '),
+    values,
+  };
+}
+
+module.exports = { sqlForPartialUpdate, sqlCompanyFilter };
