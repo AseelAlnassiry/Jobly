@@ -81,7 +81,7 @@ router.get('/:username', ensureAdminOrCorrect, async function (req, res, next) {
  *
  * Returns { username, firstName, lastName, email, isAdmin }
  *
- * Authorization required: Admin or correct 
+ * Authorization required: Admin or correct
  **/
 
 router.patch('/:username', ensureAdminOrCorrect, async function (req, res, next) {
@@ -107,6 +107,20 @@ router.delete('/:username', ensureAdminOrCorrect, async function (req, res, next
   try {
     await User.remove(req.params.username);
     return res.json({ deleted: req.params.username });
+  } catch (err) {
+    return next(err);
+  }
+});
+
+/** POST /[username]/jobs/[id]
+ * Returns {"applied": jobId}
+ * Authorization required: Admin or correct
+ * */
+router.post('/:username/jobs/:id', ensureAdminOrCorrect, async (req, res, next) => {
+  try {
+    const { id, username } = req.params;
+    await User.applyToJob(username, id);
+    return res.json({ applied: id });
   } catch (err) {
     return next(err);
   }
