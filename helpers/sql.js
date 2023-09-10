@@ -22,7 +22,7 @@ function sqlForPartialUpdate(dataToUpdate, jsToSql) {
 
 /**
  * Name: sqlCompanyFilter
- * description: Sql filter creater for injecting into company sql queries
+ * description: Sql filter creator for injecting into company sql queries
  * @param {object} filters query received from the router
  * @returns {setCols, values} WHERE clause params and an array of values required for the sql filter
  * example:
@@ -46,8 +46,8 @@ function sqlCompanyFilter(filters) {
     throw new BadRequestError('Filter minEmployees > maxEmployees');
   }
   const cols = keys.map((filter, idx) => {
-    // case insensitive name search search
-    if (filter === 'nameLike') return `Lower(name) LIKE '%' || Lower($${idx + 1}) || '%'`; 
+    // case insensitive name search
+    if (filter === 'nameLike') return `Lower(name) LIKE '%' || Lower($${idx + 1}) || '%'`;
     // min employees search
     else if (filter === 'minEmployees') return `num_employees >= $${idx + 1} `;
     // max employees search
@@ -59,4 +59,38 @@ function sqlCompanyFilter(filters) {
   };
 }
 
-module.exports = { sqlForPartialUpdate, sqlCompanyFilter };
+/**
+ * Name: sqlJobFilter
+ * description: Sql filter creator for injecting into job sql queries
+ * @param {object} filters query received from the router
+ * @returns {setCols, values} WHERE clause params and an array of values required for the sql filter
+ * example:
+ * { title: 'tesla', minSalary: 2300, equity: true }
+ * => {
+ *      setCols: "WHERE Lower(title) LIKE '%' || Lower($1) || '%' AND salary >= $2 AND equity > 0",
+ *      values: ['tesla', 2300],
+ *    }
+ */
+function sqlJobFilter(filters) {
+  const keys = Object.keys(filters);
+  const values = Object.values(filters);
+  if (keys.length === 0) throw new BadRequestError('No filter');
+  const cols = keys.map((filter, idx) => {
+    // case insensitive title search
+    if (filter === 'title') return `Lower(title) LIKE '%' || Lower($${idx + 1}) || '%'`;
+    // min salary search
+    else if (filter === 'minSalary') return `salary >= $${idx + 1}`;
+    // equity search
+    else {
+      values.splice(idx, 1);
+      if (values[idx] === false) return;
+      return `equity > 0`;
+    }
+  });
+  return {
+    setCols: 'WHERE ' + cols.join(' AND '),
+    values,
+  };
+}
+
+module.exports = { sqlForPartialUpdate, sqlCompanyFilter, sqlJobFilter };
